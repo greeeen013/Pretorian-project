@@ -1,4 +1,5 @@
 # Router pro endpointy lekcí.
+from datetime import datetime, timedelta
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -27,6 +28,26 @@ from schemas.lesson import (
 )
 
 router = APIRouter(prefix="/lessons", tags=["Lekce"])
+
+
+def auto_complete_past_lessons(db: Session) -> None:
+    """Označí jako COMPLETED všechny lekce, jejichž konec již proběhl."""
+    now = datetime.now()
+    past = (
+        db.query(LessonSchedule)
+        .filter(
+            LessonSchedule.status.notin_(["COMPLETED", "CANCELLED"]),
+        )
+        .all()
+    )
+    changed = False
+    for lesson in past:
+        end = lesson.end_time or (lesson.start_time + timedelta(minutes=lesson.duration))
+        if end < now:
+            lesson.status = "COMPLETED"
+            changed = True
+    if changed:
+        db.commit()
 
 
 
@@ -105,6 +126,7 @@ def get_lesson_types(db: Session = Depends(get_db)):
 def get_lessons(db: Session = Depends(get_db)):
     """Načte seznam všech rozvrhnutých lekcí včetně počtu aktivních rezervací."""
     from sqlalchemy import func
+    auto_complete_past_lessons(db)
     lessons = db.query(LessonSchedule).all()
     result = []
     for lesson in lessons:
@@ -178,6 +200,7 @@ def get_lesson_detail(lesson_id: int, db: Session = Depends(get_db)):
     POZOR: Tato route musí být definovaná AŽ PO všech cestách s dalšími segmenty
     (např. /{lesson_id}/attendees), jinak by FastAPI zachytil /attendees jako lesson_id.
     """
+    auto_complete_past_lessons(db)
     lesson = db.get(LessonSchedule, lesson_id)
     if not lesson:
         raise HTTPException(status_code=404, detail="Lekce nenalezena")

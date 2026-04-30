@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict 1cAf1ZWFiTD3PeN3mdJA6bm4UgQKgMpZgJaaMgjSbFhdJKPl0nXcmin88f8M4DE
+\restrict X2VEg5l25N8Vl2la1DymG4lkKNkCASnaWDwuzcoCZ9eoixYfIuMUfPvv6fuwf8Y
 
--- Dumped from database version 16.13 (Debian 16.13-1.pgdg13+1)
--- Dumped by pg_dump version 16.13 (Debian 16.13-1.pgdg13+1)
+-- Dumped from database version 16.12 (Debian 16.12-1.pgdg13+1)
+-- Dumped by pg_dump version 16.12 (Debian 16.12-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -430,8 +430,7 @@ CREATE TABLE public.lesson_schedule (
     lesson_schedule_id integer DEFAULT nextval(('"lesson_schedule_lesson_schedule_id_seq"'::text)::regclass) NOT NULL,
     employee_id integer NOT NULL,
     lesson_template_id integer,
-    lesson_type_id smallint NOT NULL,
-    required_tariff_ids text
+    lesson_type_id smallint NOT NULL
 );
 
 
@@ -474,9 +473,7 @@ CREATE TABLE public.lesson_template (
     name character varying(200) NOT NULL,
     price numeric(10,2) NOT NULL,
     lesson_template_id integer DEFAULT nextval(('"lesson_template_lesson_template_id_seq"'::text)::regclass) NOT NULL,
-    lesson_type_id smallint NOT NULL,
-    created_by integer,
-    required_tariff_ids text
+    lesson_type_id smallint NOT NULL
 );
 
 
@@ -561,10 +558,10 @@ CREATE TABLE public.member (
     phone_number character varying(50),
     photo text,
     surname character varying(100) NOT NULL,
-    member_id integer DEFAULT nextval(('"member_member_id_seq"'::text)::regclass) NOT NULL,
-    account_id integer,
     password_hash character varying(200),
-    role character varying(50) DEFAULT 'member'::character varying NOT NULL
+    role character varying(50) DEFAULT 'member'::character varying NOT NULL,
+    member_id integer DEFAULT nextval(('"member_member_id_seq"'::text)::regclass) NOT NULL,
+    account_id integer
 );
 
 
@@ -754,6 +751,26 @@ CREATE SEQUENCE public.trainer_note_trainer_note_id_seq
 ALTER SEQUENCE public.trainer_note_trainer_note_id_seq OWNER TO admin_dbs2;
 
 --
+-- Name: v_archived_tariffs; Type: VIEW; Schema: public; Owner: admin_dbs2
+--
+
+CREATE VIEW public.v_archived_tariffs AS
+ SELECT tariff.tariff_id,
+    tariff.name,
+    tariff.description,
+    tariff.price,
+    tariff.duration_months,
+    tariff.duration_days,
+    count(ms.membership_id) AS total_memberships_sold
+   FROM (public.tariff
+     LEFT JOIN public.membership ms USING (tariff_id))
+  WHERE (tariff.is_active = false)
+  GROUP BY tariff.tariff_id, tariff.name, tariff.description, tariff.price, tariff.duration_months, tariff.duration_days;
+
+
+ALTER VIEW public.v_archived_tariffs OWNER TO admin_dbs2;
+
+--
 -- Name: v_members_no_active_membership; Type: VIEW; Schema: public; Owner: admin_dbs2
 --
 
@@ -860,9 +877,9 @@ COPY public.discount_code (discount_percent, expire_date, name, discount_code_id
 --
 
 COPY public.employee (bank_account_number, end_date, "position", role, start_date, type_of_empoyment, employee_id) FROM stdin;
-CZ6508000000192000145399	\N	Administrátor	admin	2024-01-01	HPP	4
-CZ6508000000192000145399	\N	Trenér MMA	trainer	2024-01-01	HPP	5
-CZ6508000000192000145399	\N	Trenér MMA	trainer	2024-01-01	HPP	6
+CZ0000000000000000000000	\N	Trenér	\N	2026-04-23	HPP	6
+CZ0000000000000000000000	\N	Trenér	\N	2026-04-23	HPP	7
+CZ0000000000000000000000	\N	Trenér	\N	2026-04-23	HPP	8
 \.
 
 
@@ -870,19 +887,49 @@ CZ6508000000192000145399	\N	Trenér MMA	trainer	2024-01-01	HPP	6
 -- Data for Name: lesson_schedule; Type: TABLE DATA; Schema: public; Owner: admin_dbs2
 --
 
-COPY public.lesson_schedule (description, duration, end_time, is_private, maximum_capacity, name, price, start_time, status, lesson_schedule_id, employee_id, lesson_template_id, lesson_type_id, required_tariff_ids) FROM stdin;
-Úvodní lekce MMA pro nováčky.	60	\N	\N	15	MMA začátečníci – pondělí	250.00	2026-04-21 21:04:32.213259	OPEN	3	5	1	1	\N
-Lekce pro začátečníky – základy stoje, pádu a obrany.	60	\N	\N	15	MMA začátečníci	\N	2026-04-21 17:05:00	CANCELLED	7	4	1	1	\N
-Volný sparring a příprava bez pevné osnovy.	120	\N	\N	20	MMA – volný trénink	200.00	2026-04-27 20:04:32.213259	COMPLETED	6	6	\N	1	\N
-Intenzivní trénink pro pokročilé kickboxery.	90	\N	\N	12	Kickbox pokročilí – středa	300.00	2026-04-23 22:04:32.213259	COMPLETED	4	6	2	2	\N
-Zaměřeno na submisní techniky a přechody poloh.	75	\N	\N	10	BJJ – technika na zemi	\N	2026-04-21 21:10:00	COMPLETED	8	6	3	3	\N
-Zaměřeno na submisní techniky a přechody poloh.	75	\N	\N	10	BJJ – technika na zemi	\N	2026-04-21 17:07:00	COMPLETED	9	6	3	3	\N
-Technika submisí a přechodů poloh.	75	\N	\N	10	BJJ – technika	280.00	2026-04-25 23:04:32.213259	OPEN	5	5	3	3	\N
-Zaměřeno na submisní techniky a přechody poloh.	75	\N	\N	10	BJJ – technika na zemi	\N	2026-04-24 10:13:00	OPEN	10	4	\N	3	\N
-Lekce pro začátečníky – základy stoje, pádu a obrany.	60	\N	\N	15	MMA začátečníci	\N	2026-04-24 10:13:00	OPEN	11	5	1	1	\N
-Lekce pro začátečníky – základy stoje, pádu a obrany.	60	\N	\N	15	MMA začátečníci	\N	2026-04-24 10:15:00	OPEN	12	5	1	1	\N
-Proběhlá lekce – testuje se znovu otevření.	60	\N	\N	10	BJJ – minulý týden (dokončená)	280.00	2026-04-21 09:45:08.529928	COMPLETED	13	5	\N	3	\N
-Zrušená lekce – testuje se znovu otevření.	90	\N	\N	12	Kickbox – zrušená lekce	300.00	2026-04-26 16:45:08.529928	CANCELLED	14	6	\N	2	\N
+COPY public.lesson_schedule (description, duration, end_time, is_private, maximum_capacity, name, price, start_time, status, lesson_schedule_id, employee_id, lesson_template_id, lesson_type_id) FROM stdin;
+mma testovací	60	\N	\N	20	MMA	\N	2026-05-01 11:00:00	OPEN	52	6	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-05-04 11:00:00	OPEN	53	6	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-05-06 11:00:00	OPEN	54	6	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-05-08 11:00:00	OPEN	55	6	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-05-11 11:00:00	OPEN	56	6	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-05-13 11:00:00	OPEN	57	6	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-05-15 11:00:00	OPEN	58	6	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-05-18 11:00:00	OPEN	59	6	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-05-20 11:00:00	OPEN	60	6	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-05-22 11:00:00	OPEN	61	6	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-05-25 11:00:00	OPEN	62	6	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-05-27 11:00:00	OPEN	63	6	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-05-29 11:00:00	OPEN	64	6	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-05-05 12:00:00	OPEN	67	7	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-05-07 12:00:00	OPEN	68	7	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-05-12 12:00:00	OPEN	69	7	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-05-14 12:00:00	OPEN	70	7	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-05-19 12:00:00	OPEN	71	7	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-05-21 12:00:00	OPEN	72	7	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-05-26 12:00:00	OPEN	73	7	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-05-28 12:00:00	OPEN	74	7	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-06-02 12:00:00	OPEN	75	7	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-06-04 12:00:00	OPEN	76	7	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-06-09 12:00:00	OPEN	77	7	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-06-11 12:00:00	OPEN	78	7	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-06-16 12:00:00	OPEN	79	7	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-06-18 12:00:00	OPEN	80	7	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-06-23 12:00:00	OPEN	81	7	\N	1
+test nováček	60	\N	\N	20	pro nováčky	\N	2026-05-06 13:00:00	OPEN	83	8	\N	1
+test nováček	60	\N	\N	20	pro nováčky	\N	2026-05-13 13:00:00	OPEN	84	8	\N	1
+test nováček	60	\N	\N	20	pro nováčky	\N	2026-05-20 13:00:00	OPEN	85	8	\N	1
+test nováček	60	\N	\N	20	pro nováčky	\N	2026-05-27 13:00:00	OPEN	86	8	\N	1
+test nováček	60	\N	\N	20	pro nováčky	\N	2026-06-03 13:00:00	OPEN	87	8	\N	1
+test nováček	60	\N	\N	20	pro nováčky	\N	2026-06-10 13:00:00	OPEN	88	8	\N	1
+test nováček	60	\N	\N	20	pro nováčky	\N	2026-06-17 13:00:00	OPEN	89	8	\N	1
+test nováček	60	\N	\N	20	pro nováčky	\N	2026-06-24 13:00:00	OPEN	90	8	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-04-27 11:00:00	COMPLETED	50	6	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-04-29 11:00:00	COMPLETED	51	6	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-04-28 12:00:00	COMPLETED	65	7	\N	1
+JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-04-30 12:00:00	COMPLETED	66	7	\N	1
+test nováček	60	\N	\N	20	pro nováčky	\N	2026-04-29 13:00:00	COMPLETED	82	8	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-04-28 12:52:00	COMPLETED	91	6	\N	1
 \.
 
 
@@ -891,6 +938,39 @@ Zrušená lekce – testuje se znovu otevření.	90	\N	\N	12	Kickbox – zrušen
 --
 
 COPY public.lesson_tariff (lesson_schedule_id, tariff_id) FROM stdin;
+50	7
+51	7
+52	7
+53	7
+54	7
+55	7
+56	7
+57	7
+58	7
+59	7
+60	7
+61	7
+62	7
+63	7
+64	7
+65	8
+66	8
+67	8
+68	8
+69	8
+70	8
+71	8
+72	8
+73	8
+74	8
+75	8
+76	8
+77	8
+78	8
+79	8
+80	8
+81	8
+91	7
 \.
 
 
@@ -898,10 +978,8 @@ COPY public.lesson_tariff (lesson_schedule_id, tariff_id) FROM stdin;
 -- Data for Name: lesson_template; Type: TABLE DATA; Schema: public; Owner: admin_dbs2
 --
 
-COPY public.lesson_template (description, duration, maximum_capacity, name, price, lesson_template_id, lesson_type_id, created_by, required_tariff_ids) FROM stdin;
-Lekce pro začátečníky – základy stoje, pádu a obrany.	60	15	MMA začátečníci	250.00	1	1	\N	\N
-Intenzivní trénink kopů a kombinací pro pokročilé.	90	12	Kickbox pokročilí	300.00	2	2	\N	\N
-Zaměřeno na submisní techniky a přechody poloh.	75	10	BJJ – technika na zemi	280.00	3	3	\N	\N
+COPY public.lesson_template (description, duration, maximum_capacity, name, price, lesson_template_id, lesson_type_id) FROM stdin;
+mma testovací	60	20	MMA	0.00	1	1
 \.
 
 
@@ -910,6 +988,7 @@ Zaměřeno na submisní techniky a přechody poloh.	75	10	BJJ – technika na ze
 --
 
 COPY public.lesson_template_tariff (lesson_template_id, tariff_id) FROM stdin;
+1	7
 \.
 
 
@@ -918,9 +997,7 @@ COPY public.lesson_template_tariff (lesson_template_id, tariff_id) FROM stdin;
 --
 
 COPY public.lesson_type (description, name, lesson_type_id) FROM stdin;
-Smíšená bojová umění – kombinace úderů, kopů a wrestlingu.	MMA	1
-Kontaktní sport kombinující box a kopání.	Kickbox	2
-Brazilské jiu-jitsu – zápasnický styl zaměřený na techniku.	BJJ	3
+Výchozí typ lekce	Obecný	1
 \.
 
 
@@ -936,15 +1013,14 @@ COPY public.lesson_type_tariff (tariff_id, lesson_type_id) FROM stdin;
 -- Data for Name: member; Type: TABLE DATA; Schema: public; Owner: admin_dbs2
 --
 
-COPY public.member (credit_balance, email, entry_token, first_attendance, is_active, name, phone_number, photo, surname, member_id, account_id, password_hash, role) FROM stdin;
-0	v5@v.cz	2ed48b98-03b1-4f5c-8d11-f354dc80ae22	\N	\N	jmeno	\N	\N	prijmeni	1	\N	$2b$12$qwGc3.voWLJwoFohgSZsa.fIskXAxd9NC9J/0TN5hNVSM.n2qWMoq	admin
-0	asd@asd.asd	2489a10c-5b61-43bb-8eed-56b1f76941f9	\N	\N	asd	\N	\N	asd	3	\N	$2b$12$OhM3HsEU7YmJ5pS0aNpZ.ecxFelxjjR4r5Uaxl3pvCdoUddinVMCu	admin
-0	admin@pretorian.cz	d9e99463-ad29-4530-95bd-dec56b8b59dc	\N	\N	Adam	\N	\N	Novák	4	\N	$2b$12$MZjnI5dPMXu55r21IpNmd.Y.9QzGe8AlSCVd622pCF3rJ5Lzojusy	admin
-0	trener1@pretorian.cz	3c0a0fc3-b736-49c9-9db3-a90b39d323a8	\N	\N	Tomáš	\N	\N	Kovář	5	\N	$2b$12$Cxf1dankt2DbTyz/hHdkA.5y3T3jIoa9qFqDHA.aTU.a9Ys9kL/LG	trainer
-0	trener2@pretorian.cz	e054bb86-284b-4453-94c8-af8daf10cde3	\N	\N	Jana	\N	\N	Horáková	6	\N	$2b$12$LfPsb2jURRfSYILqlLvsE.EcMWjPmE5fTaav.36v7C/7.Zard.nL2	trainer
-300	clen2@pretorian.cz	8cbbbb51-877c-448b-9084-97203cf33158	\N	\N	Lucie	\N	\N	Marková	8	\N	$2b$12$qU2IbS1476zfBqexaOH/9OD.84oOWRe0VXo72qvEeLrTVuuhIq6LS	member
-200	clen3@pretorian.cz	55bdca1d-9d92-4678-80c4-a23d33ece37a	\N	\N	Ondřej	\N	\N	Blažek	9	\N	$2b$12$59oz6Qz.sKojTBlm.fmPLu2jfUX/5VWE0dGhdzpx9HnZJ0I.akQnG	member
-500	clen1@pretorian.cz	5aa7bf32-39f8-4f5b-b3fb-87c305342920	\N	\N	Petr	\N	\N	Svoboda	7	\N	$2b$12$70P.bZh4CBvMi2MuCfkcgePmFaUovgbv5adzfYAVtgQiRvKZNWM/G	member
+COPY public.member (credit_balance, email, entry_token, first_attendance, is_active, name, phone_number, photo, surname, password_hash, role, member_id, account_id) FROM stdin;
+0	admin1@seznam.cz	866ad27a-9bf7-49ff-affa-14593b04114c	\N	\N	admin	\N	\N	1	$2b$12$UruiNBodlwHczgzVZTOt2.KsNnw58gt5SmElsszJvlE5YDSHSAJLu	admin	12	\N
+0	trener1@seznam.cz	a318ac3d-3ab7-4499-9def-e4ceb5711454	\N	\N	Trener	\N	\N	1	$2b$12$7nqmUDnXbKMEX0atI2QFnucu6wbomeK3oKJ5T1D9LjaHT2IXFoBfK	trainer	6	\N
+0	trener2@seznam.cz	f8779e14-89f2-4409-8d5d-e9294e5ff3bf	\N	\N	Trener	\N	\N	2	$2b$12$I4W/PzT//wnxcvNQ2QXf4uD7A2pktqyUELy6erujf6XAT7hxtfq.q	trainer	7	\N
+0	trener3@seznam.cz	a682a101-3c4d-48f5-92b9-ab81f49830dd	\N	\N	trener	\N	\N	3	$2b$12$EZ/xX.1pADdsNa.aLhp7XegqtnF4wc8fiOnrAzr74VLJjYP5XqTPi	trainer	8	\N
+1000	uzivatel2@seznam.cz	ee28b39c-ba9e-487d-a658-1c506b30ddef	\N	\N	uzivatel	\N	\N	2	$2b$12$Z1j53VQvRSPTJwhgmp6h3.R9hmMjN.epdKvIiJsuAeOCwkrnSrPLa	member	10	\N
+1000	uzivatel3@seznam.cz	ef484d76-2ea3-4835-99a6-c8f637a1a961	\N	\N	uzivatel	\N	\N	3	$2b$12$lYYpG4dPLriADVxv8DHVuuYsxEMYfUJWieJNcQ6tOc8iIasiSWpj6	member	11	\N
+900	uzivatel1@seznam.cz	6724e164-f889-45d0-9f3a-cef9d0c662e6	\N	\N	uzivatel	\N	/static/photos/9.png	1	$2b$12$n7kxCGKBr2FbnDBQS5SHE.NAFrBU9TrLgI0CxCUGJ9nAnnnrFXaKe	member	9	\N
 \.
 
 
@@ -953,8 +1029,7 @@ COPY public.member (credit_balance, email, entry_token, first_attendance, is_act
 --
 
 COPY public.membership (creation_date, is_auto_renewal, valid_from, valid_to, membership_id, member_id, tariff_id) FROM stdin;
-2026-04-24	f	2026-04-24 09:45:08.548301	2026-05-24 09:45:08.548301	2	7	6
-2026-04-24	f	2026-04-24 09:45:08.548301	2026-05-24 09:45:08.548301	3	8	6
+2026-04-23	f	2026-04-23 17:25:39.531978	2026-05-23 17:25:39.531978	4	9	7
 \.
 
 
@@ -963,8 +1038,11 @@ COPY public.membership (creation_date, is_auto_renewal, valid_from, valid_to, me
 --
 
 COPY public.payment (amount, date, payment_details, payment_type, status, payment_id, discount_code_id, member_id, membership_id) FROM stdin;
-500.00	2026-04-24 09:45:08.554979+00	\N	CREDIT	COMPLETED	2	\N	7	2
-500.00	2026-04-24 09:45:08.558532+00	\N	CREDIT	COMPLETED	3	\N	8	3
+1000.00	2026-04-23 17:25:00.838822+00	\N	CARD	COMPLETED	12	\N	9	\N
+400.00	2026-04-23 17:25:39.548693+00	\N	CREDIT	COMPLETED	13	\N	9	4
+1000.00	2026-04-23 17:41:36.040043+00	\N	CARD	COMPLETED	14	\N	10	\N
+1000.00	2026-04-23 17:41:55.390994+00	\N	CARD	COMPLETED	15	\N	11	\N
+300.00	2026-04-27 12:46:01.114434+00	\N	CARD	COMPLETED	16	\N	9	\N
 \.
 
 
@@ -973,12 +1051,10 @@ COPY public.payment (amount, date, payment_details, payment_type, status, paymen
 --
 
 COPY public.reservation (attendance, guest_name, note, status, timestamp_creation, timestamp_change, reservation_id, member_id, lesson_schedule_id) FROM stdin;
-\N	\N	\N	CANCELLED	2026-04-21 03:12:31.595266	2026-04-21 03:13:17.702881	1	7	3
-\N	\N	\N	CANCELLED	2026-04-21 03:17:05.208723	2026-04-21 03:26:53.464591	2	7	5
-\N	\N	\N	CANCELLED	2026-04-21 05:08:22.507564	2026-04-21 05:08:25.777799	3	7	3
-\N	\N	\N	CANCELLED	2026-04-21 17:56:37.401225	\N	4	7	8
-\N	\N	\N	CREATED	2026-04-21 18:16:28.462316	\N	6	7	3
-t	\N	\N	CREATED	2026-04-21 18:16:24.609857	\N	5	7	9
+\N	\N	\N	CREATED	2026-04-23 17:25:51.345038	\N	3	9	50
+\N	\N	\N	CREATED	2026-04-23 17:25:53.373125	\N	4	9	51
+\N	\N	\N	CREATED	2026-04-23 17:25:55.184347	\N	5	9	82
+\N	\N	\N	CONFIRMED	2026-04-30 11:21:22.104735	\N	6	9	54
 \.
 
 
@@ -995,10 +1071,8 @@ COPY public.reservation_payment (payment_id, reservation_id) FROM stdin;
 --
 
 COPY public.tariff (description, name, price, tariff_id, duration_months, duration_days, is_active) FROM stdin;
-Měsíční permanentka – přístup na základní lekce.	Základní	500.00	6	1	0	t
-Čtvrtletní permanentka pro pokročilé.	Pokročilý	1200.00	7	3	0	t
-Roční permanentka – neomezený přístup.	Premium	4000.00	8	12	0	t
-Stará nabídka – již neprodáváme.	Archivovaný tarif	400.00	9	1	0	f
+testovací MMA	MMA měsíční	400.00	7	1	0	t
+testovací JIU-JITSU	JIU-JITSU měsíční	400.00	8	1	0	t
 \.
 
 
@@ -1056,56 +1130,56 @@ SELECT pg_catalog.setval('public.employee_employee_id_seq', 1, false);
 -- Name: lesson_schedule_lesson_schedule_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin_dbs2
 --
 
-SELECT pg_catalog.setval('public.lesson_schedule_lesson_schedule_id_seq', 14, true);
+SELECT pg_catalog.setval('public.lesson_schedule_lesson_schedule_id_seq', 91, true);
 
 
 --
 -- Name: lesson_template_lesson_template_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin_dbs2
 --
 
-SELECT pg_catalog.setval('public.lesson_template_lesson_template_id_seq', 3, true);
+SELECT pg_catalog.setval('public.lesson_template_lesson_template_id_seq', 1, true);
 
 
 --
 -- Name: lesson_type_lesson_type_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin_dbs2
 --
 
-SELECT pg_catalog.setval('public.lesson_type_lesson_type_id_seq', 3, true);
+SELECT pg_catalog.setval('public.lesson_type_lesson_type_id_seq', 1, false);
 
 
 --
 -- Name: member_member_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin_dbs2
 --
 
-SELECT pg_catalog.setval('public.member_member_id_seq', 9, true);
+SELECT pg_catalog.setval('public.member_member_id_seq', 12, true);
 
 
 --
 -- Name: membership_membership_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin_dbs2
 --
 
-SELECT pg_catalog.setval('public.membership_membership_id_seq', 3, true);
+SELECT pg_catalog.setval('public.membership_membership_id_seq', 4, true);
 
 
 --
 -- Name: payment_payment_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin_dbs2
 --
 
-SELECT pg_catalog.setval('public.payment_payment_id_seq', 3, true);
+SELECT pg_catalog.setval('public.payment_payment_id_seq', 16, true);
 
 
 --
 -- Name: reservation_reservation_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin_dbs2
 --
 
-SELECT pg_catalog.setval('public.reservation_reservation_id_seq', 1, false);
+SELECT pg_catalog.setval('public.reservation_reservation_id_seq', 6, true);
 
 
 --
 -- Name: tariff_tariff_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin_dbs2
 --
 
-SELECT pg_catalog.setval('public.tariff_tariff_id_seq', 9, true);
+SELECT pg_catalog.setval('public.tariff_tariff_id_seq', 8, true);
 
 
 --
@@ -1412,38 +1486,6 @@ ALTER TABLE ONLY public.lesson_type_tariff
 
 
 --
--- Name: lesson_tariff fk_lt_lesson; Type: FK CONSTRAINT; Schema: public; Owner: admin_dbs2
---
-
-ALTER TABLE ONLY public.lesson_tariff
-    ADD CONSTRAINT fk_lt_lesson FOREIGN KEY (lesson_schedule_id) REFERENCES public.lesson_schedule(lesson_schedule_id) ON DELETE CASCADE;
-
-
---
--- Name: lesson_tariff fk_lt_tariff; Type: FK CONSTRAINT; Schema: public; Owner: admin_dbs2
---
-
-ALTER TABLE ONLY public.lesson_tariff
-    ADD CONSTRAINT fk_lt_tariff FOREIGN KEY (tariff_id) REFERENCES public.tariff(tariff_id) ON DELETE CASCADE;
-
-
---
--- Name: lesson_template_tariff fk_ltt_tariff; Type: FK CONSTRAINT; Schema: public; Owner: admin_dbs2
---
-
-ALTER TABLE ONLY public.lesson_template_tariff
-    ADD CONSTRAINT fk_ltt_tariff FOREIGN KEY (tariff_id) REFERENCES public.tariff(tariff_id) ON DELETE CASCADE;
-
-
---
--- Name: lesson_template_tariff fk_ltt_template; Type: FK CONSTRAINT; Schema: public; Owner: admin_dbs2
---
-
-ALTER TABLE ONLY public.lesson_template_tariff
-    ADD CONSTRAINT fk_ltt_template FOREIGN KEY (lesson_template_id) REFERENCES public.lesson_template(lesson_template_id) ON DELETE CASCADE;
-
-
---
 -- Name: member fk_member_account; Type: FK CONSTRAINT; Schema: public; Owner: admin_dbs2
 --
 
@@ -1540,24 +1582,40 @@ ALTER TABLE ONLY public.trainer_note
 
 
 --
--- Name: lesson_schedule lesson_schedule_lesson_template_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: admin_dbs2
+-- Name: lesson_tariff lesson_tariff_lesson_schedule_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: admin_dbs2
 --
 
-ALTER TABLE ONLY public.lesson_schedule
-    ADD CONSTRAINT lesson_schedule_lesson_template_id_fkey FOREIGN KEY (lesson_template_id) REFERENCES public.lesson_template(lesson_template_id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.lesson_tariff
+    ADD CONSTRAINT lesson_tariff_lesson_schedule_id_fkey FOREIGN KEY (lesson_schedule_id) REFERENCES public.lesson_schedule(lesson_schedule_id) ON DELETE CASCADE;
 
 
 --
--- Name: lesson_template lesson_template_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: admin_dbs2
+-- Name: lesson_tariff lesson_tariff_tariff_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: admin_dbs2
 --
 
-ALTER TABLE ONLY public.lesson_template
-    ADD CONSTRAINT lesson_template_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.member(member_id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.lesson_tariff
+    ADD CONSTRAINT lesson_tariff_tariff_id_fkey FOREIGN KEY (tariff_id) REFERENCES public.tariff(tariff_id) ON DELETE CASCADE;
+
+
+--
+-- Name: lesson_template_tariff lesson_template_tariff_lesson_template_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: admin_dbs2
+--
+
+ALTER TABLE ONLY public.lesson_template_tariff
+    ADD CONSTRAINT lesson_template_tariff_lesson_template_id_fkey FOREIGN KEY (lesson_template_id) REFERENCES public.lesson_template(lesson_template_id) ON DELETE CASCADE;
+
+
+--
+-- Name: lesson_template_tariff lesson_template_tariff_tariff_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: admin_dbs2
+--
+
+ALTER TABLE ONLY public.lesson_template_tariff
+    ADD CONSTRAINT lesson_template_tariff_tariff_id_fkey FOREIGN KEY (tariff_id) REFERENCES public.tariff(tariff_id) ON DELETE CASCADE;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 1cAf1ZWFiTD3PeN3mdJA6bm4UgQKgMpZgJaaMgjSbFhdJKPl0nXcmin88f8M4DE
+\unrestrict X2VEg5l25N8Vl2la1DymG4lkKNkCASnaWDwuzcoCZ9eoixYfIuMUfPvv6fuwf8Y
 
