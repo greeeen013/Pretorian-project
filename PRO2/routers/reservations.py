@@ -54,7 +54,7 @@ def vytvor_rezervaci(
     lesson = db.get(LessonSchedule, data.lesson_schedule_id)
     if not lesson:
         raise HTTPException(status_code=404, detail="Lekce nenalezena")
-    cena_lekce = int(lesson.price)
+    cena_lekce = int(lesson.price) if lesson.price is not None else 0
 
     clen = db.execute(
         select(Member).where(Member.member_id == member_id).with_for_update()
