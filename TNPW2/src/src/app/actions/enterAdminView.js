@@ -8,10 +8,11 @@ export async function enterAdminView({ store, api }) {
   }));
 
   try {
-    const [pendingPayments, membersNoMembership, trainerStats] = await Promise.all([
+    const [pendingPayments, membersNoMembership, trainerStats, scheduleCapacity] = await Promise.all([
       api.admin.getPendingPayments(),
       api.stats.getMembersNoMembership(),
       api.stats.getTrainerStats(),
+      api.stats.getScheduleCapacity(),
     ]);
 
     if (typeof history !== 'undefined') history.pushState({}, '', '/admin');
@@ -21,6 +22,8 @@ export async function enterAdminView({ store, api }) {
       pendingPayments,
       membersNoMembership,
       trainerStats,
+      scheduleCapacity,
+      selectedMemberDetail: null,
       ui: { ...state.ui, status: STATUS.RDY, mode: CONST.ADMIN_VIEW },
     }));
   } catch (error) {

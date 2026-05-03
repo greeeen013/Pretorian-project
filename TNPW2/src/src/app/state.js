@@ -37,6 +37,14 @@ export function createInitialState() {
     // Admin: čekající platby ke schválení
     pendingPayments: [],
 
+    // Admin: statistiky z DB pohledů
+    membersNoMembership: [],
+    trainerStats: [],
+    scheduleCapacity: [],
+
+    // Admin: detail vybraného člena (fn_get_member_details_json)
+    selectedMemberDetail: null,
+
     // Data pro formulář vytváření lekce
     trainers: [],
     lessonTemplates: [],

@@ -33,6 +33,9 @@ import { saveTeamAttendance } from './actions/saveTeamAttendance.js';
 import { uploadPhoto } from './actions/uploadPhoto.js';
 import { saveLessonTemplate } from './actions/saveLessonTemplate.js';
 import { kickMember } from './actions/kickMember.js';
+import { closeBilling } from './actions/closeBilling.js';
+import { archiveMembers } from './actions/archiveMembers.js';
+import { showMemberDetail } from './actions/showMemberDetail.js';
 
 import * as CONST from '../constants.js';
 import * as STATUS from '../statuses.js';
@@ -61,7 +64,7 @@ export function createDispatcher(store, api) {
         return store.setState((state) => ({
           ...state,
           auth: { memberId: null, name: null, surname: null, role: null },
-          ui: { ...state.ui, mode: CONST.AUTH_VIEW, status: STATUS.RDY },
+          ui: { ...state.ui, mode: CONST.AUTH_VIEW, status: STATUS.RDY, notification: null, errorMessage: null },
         }));
 
       case CONST.ENTER_RESERVATION_LIST:
@@ -196,6 +199,18 @@ export function createDispatcher(store, api) {
 
       case CONST.KICK_MEMBER:
         return kickMember({ store, api, payload });
+
+      case CONST.CLOSE_BILLING:
+        return closeBilling({ store, api });
+
+      case CONST.ARCHIVE_MEMBERS:
+        return archiveMembers({ store, api });
+
+      case CONST.SHOW_MEMBER_DETAIL:
+        return showMemberDetail({ store, api, payload });
+
+      case CONST.HIDE_MEMBER_DETAIL:
+        return store.setState((s) => ({ ...s, selectedMemberDetail: null }));
 
       case CONST.RECOVER_FROM_ERROR:
         return store.setState((state) => ({

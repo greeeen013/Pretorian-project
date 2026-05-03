@@ -24,6 +24,10 @@ class TariffResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ArchivedTariffResponse(TariffResponse):
+    total_memberships_sold: int = 0
+
+
 class MembershipPurchase(BaseModel):
     tariff_id: int
 

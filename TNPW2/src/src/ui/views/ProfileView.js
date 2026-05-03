@@ -106,14 +106,25 @@ export function ProfileView({ viewState, handlers }) {
   container.appendChild(photoSection);
 
   // --- Sekce: Moje rezervace ---
-  container.appendChild(createTitle(2, 'Moje přihlášky na lekce'));
+  const now = new Date();
+  const isPast = (r) => {
+    if (!r.lesson_start_time) return false;
+    const start = new Date(r.lesson_start_time);
+    const end = new Date(start.getTime() + (r.lesson_duration ?? 60) * 60000);
+    return now > end;
+  };
 
-  if (!historyReservations || historyReservations.length === 0) {
-    container.appendChild(createText(['Zatím žádné přihlášky.'], 'text-muted mb-15'));
-  } else {
-    const seznam = createSection('reservations-history-list mb-15');
+  const aktivni = (historyReservations ?? []).filter(
+    (r) => (r.status === 'CREATED' || r.status === 'CONFIRMED') && !isPast(r),
+  );
+  const historiePrihlasek = (historyReservations ?? []).filter(
+    (r) => r.status === 'CANCELLED' || r.status === 'ATTENDED' ||
+           ((r.status === 'CREATED' || r.status === 'CONFIRMED') && isPast(r)),
+  );
 
-    historyReservations.forEach((r) => {
+  function renderRezervaceKarty(seznam) {
+    const sekce = createSection('reservations-history-list mb-15');
+    seznam.forEach((r) => {
       const nazev = r.lesson_name ?? 'Neznámá lekce';
       const casLekce = r.lesson_start_time
         ? new Date(r.lesson_start_time).toLocaleString('cs-CZ', { dateStyle: 'long', timeStyle: 'short' })
@@ -122,7 +133,6 @@ export function ProfileView({ viewState, handlers }) {
 
       const karta = createDiv('card mb-5 p-10');
 
-      // Řádek: název + status
       const hlavicka = createDiv('d-flex justify-between align-center mb-3');
       hlavicka.appendChild(createElement('strong', {}, [nazev]));
       hlavicka.appendChild(createElement('span', { className: stavRezClass(r) }, [stavRez(r)]));
@@ -133,10 +143,21 @@ export function ProfileView({ viewState, handlers }) {
       }
       karta.appendChild(createElement('p', { className: 'text-muted mb-0' }, [`Přihlášeno: ${casRezervace}`]));
 
-      seznam.appendChild(karta);
+      sekce.appendChild(karta);
     });
+    return sekce;
+  }
 
-    container.appendChild(seznam);
+  container.appendChild(createTitle(2, 'Moje přihlášky na lekce'));
+  if (aktivni.length === 0) {
+    container.appendChild(createText(['Zatím žádné aktivní přihlášky.'], 'text-muted mb-15'));
+  } else {
+    container.appendChild(renderRezervaceKarty(aktivni));
+  }
+
+  if (historiePrihlasek.length > 0) {
+    container.appendChild(createTitle(2, 'Historie přihlášek'));
+    container.appendChild(renderRezervaceKarty(historiePrihlasek));
   }
 
   // --- Sekce: Moje platby ---

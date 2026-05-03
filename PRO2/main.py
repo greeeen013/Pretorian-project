@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 # Import modelů zajišťuje, že SQLAlchemy "vidí" všechny tabulky.
 from models import Base  # noqa: F401
 
-from routers import auth, me, members, memberships, payments, reservations, lessons, stats
+from routers import admin, auth, me, members, memberships, payments, reservations, lessons, stats
 
 # Vytvoření FastAPI aplikace s metadaty pro dokumentaci (Swagger UI na /docs).
 app = FastAPI(
@@ -43,6 +43,7 @@ app.include_router(me.router)
 app.include_router(memberships.router)
 app.include_router(lessons.router)
 app.include_router(stats.router)
+app.include_router(admin.router)
 
 _photos_dir = os.path.join(os.path.dirname(__file__), "static", "photos")
 os.makedirs(_photos_dir, exist_ok=True)

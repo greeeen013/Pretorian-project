@@ -71,8 +71,9 @@ export function LessonListView({ viewState, handlers }) {
   // Status tlačítka (vlevo)
   const statusGroup = createDiv('', []);
   const statusFilters = [
-    { key: 'ALL',  label: 'Vše' },
-    { key: 'OPEN', label: 'Otevřené' },
+    { key: 'ALL',       label: 'Vše' },
+    { key: 'OPEN',      label: 'Otevřené' },
+    { key: 'COMPLETED', label: 'Dokončené' },
     ...(capabilities.canCreateLesson ? [{ key: 'MINE', label: 'Moje lekce' }] : []),
   ];
   statusFilters.forEach(({ key, label }) => {

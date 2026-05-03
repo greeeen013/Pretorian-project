@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from auth.dependencies import CurrentUser, get_current_member
@@ -12,6 +13,7 @@ from models.membership import Membership
 from models.payment import Payment
 from models.tariff import Tariff
 from schemas.membership import (
+    ArchivedTariffResponse,
     MembershipPurchase,
     MembershipResponse,
     TariffCreate,
@@ -26,14 +28,22 @@ def get_tariffs(db: Session = Depends(get_db)):
     return db.query(Tariff).filter(Tariff.is_active == True).all()
 
 
-@router.get("/tariffs/archived", response_model=list[TariffResponse])
+@router.get("/tariffs/archived", response_model=list[ArchivedTariffResponse])
 def get_archived_tariffs(
     current: CurrentUser = Depends(get_current_member),
     db: Session = Depends(get_db),
 ):
     if current.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Pouze administrátor.")
-    return db.query(Tariff).filter(Tariff.is_active == False).all()
+    try:
+        rows = db.execute(text("SELECT * FROM v_archived_tariffs ORDER BY tariff_id")).mappings().all()
+        return [dict(r) for r in rows]
+    except Exception:
+        db.rollback()
+        return [
+            {**{c: getattr(t, c) for c in ["tariff_id", "name", "description", "price", "duration_months", "duration_days"]}, "total_memberships_sold": 0}
+            for t in db.query(Tariff).filter(Tariff.is_active == False).all()
+        ]
 
 
 @router.patch("/tariffs/{tariff_id}/restore", response_model=TariffResponse)
@@ -123,6 +133,17 @@ def purchase_membership(
     if not tariff:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tarif neexistuje.")
 
+    # Cena přes DB funkci fn_get_tariff_price (umožňuje budoucí slevy).
+    # Fallback na tariff.price pro SQLite (testy).
+    try:
+        cena = int(db.execute(
+            text("SELECT fn_get_tariff_price(:tid, 0)"),
+            {"tid": data.tariff_id},
+        ).scalar())
+    except Exception:
+        db.rollback()
+        cena = int(tariff.price)
+
     # SELECT FOR UPDATE – prevence race conditions na credit_balance
     member = (
         db.query(Member)
@@ -131,7 +152,7 @@ def purchase_membership(
         .first()
     )
 
-    if member.credit_balance < int(tariff.price):
+    if member.credit_balance < cena:
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail="Nedostatečný kredit.",
@@ -156,7 +177,7 @@ def purchase_membership(
         )
 
     # Atomická transakce: odečtení kreditů + vytvoření Membership + Payment
-    member.credit_balance -= int(tariff.price)
+    member.credit_balance -= cena
 
     valid_from = now
     valid_to = now + relativedelta(months=tariff.duration_months, days=tariff.duration_days)
@@ -173,7 +194,7 @@ def purchase_membership(
     db.flush()  # membership_id je potřeba pro Payment.membership_id
 
     payment = Payment(
-        amount=tariff.price,
+        amount=cena,
         payment_type="CREDIT",
         status="COMPLETED",
         member_id=current.member_id,

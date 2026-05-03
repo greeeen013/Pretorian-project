@@ -97,7 +97,7 @@ def cmd_export():
 
 
 def cmd_import():
-    """Obnoví databázi z dump.sql pomocí psql."""
+    """Obnoví databázi z dump.sql pomocí psql — nejdříve dropne a znovu vytvoří DB."""
     if not os.path.exists(DUMP_FILE):
         print(f"❌ Soubor {DUMP_FILE} nenalezen.")
         print("💡 Nejdříve proveď export: python DBmanager.py export")
@@ -105,6 +105,29 @@ def cmd_import():
 
     if not ensure_docker():
         sys.exit(1)
+
+    def psql_postgres(sql: str):
+        return subprocess.run(
+            ["docker", "exec", CONTAINER, "psql", "-U", DB_USER, "-d", "postgres", "-c", sql],
+            capture_output=True,
+        )
+
+    print("⏳ Ukončuji aktivní spojení k databázi...")
+    psql_postgres(
+        f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{DB_NAME}';"
+    )
+
+    print(f"⏳ Mažu databázi {DB_NAME}...")
+    r = psql_postgres(f"DROP DATABASE IF EXISTS {DB_NAME};")
+    if r.returncode != 0:
+        print("❌ DROP DATABASE selhal:", r.stderr.decode(errors="replace"))
+        sys.exit(r.returncode)
+
+    print(f"⏳ Vytvářím databázi {DB_NAME}...")
+    r = psql_postgres(f"CREATE DATABASE {DB_NAME} OWNER {DB_USER};")
+    if r.returncode != 0:
+        print("❌ CREATE DATABASE selhal:", r.stderr.decode(errors="replace"))
+        sys.exit(r.returncode)
 
     print(f"⏳ Importuji {DUMP_FILE} do databáze...")
     with open(DUMP_FILE, "r", encoding="utf-8") as f:

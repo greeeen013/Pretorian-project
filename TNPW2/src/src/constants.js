@@ -76,3 +76,11 @@ export const SAVE_LESSON_TEMPLATE    = 'SAVE_LESSON_TEMPLATE';
 
 // Vyhození člena z lekce (trenér/admin)
 export const KICK_MEMBER = 'KICK_MEMBER';
+
+// Admin – správa DB procedur
+export const CLOSE_BILLING    = 'CLOSE_BILLING';
+export const ARCHIVE_MEMBERS  = 'ARCHIVE_MEMBERS';
+
+// Admin – detail člena (fn_get_member_details_json)
+export const SHOW_MEMBER_DETAIL = 'SHOW_MEMBER_DETAIL';
+export const HIDE_MEMBER_DETAIL = 'HIDE_MEMBER_DETAIL';
