@@ -169,11 +169,13 @@ export function canEnrollInLesson(lekce, state) {
 }
 
 /**
- * canUnenrollFromLesson – člen nebo trenér se může odhlásit, pokud má aktivní rezervaci.
+ * canUnenrollFromLesson – člen nebo trenér se může odhlásit, pokud má aktivní rezervaci
+ * a lekce ještě nezačala (pouze OPEN nebo FULL).
  * Admin se neodhlašuje.
  */
 export function canUnenrollFromLesson(lekce, state) {
   if (state.auth?.role === 'admin') return false;
+  if (lekce.status !== 'OPEN' && lekce.status !== 'FULL') return false;
   const lessonId = lekce.lesson_schedule_id ?? lekce.lesson_id;
   return getUserReservationForLesson(state, lessonId) !== null;
 }
@@ -233,11 +235,15 @@ export function selectReservationListView(state) {
       canConfirm: true,
       canCancel: true,
     },
-    reservationCapabilities: rezervace.map((r) => ({
-      reservationId: r.reservation_id,
-      lessonId: r.lesson_schedule_id,
-      canCancel: canCancelReservation(r),
-    })),
+    reservationCapabilities: rezervace.map((r) => {
+      const lesson = lekce.find((l) => (l.lesson_schedule_id ?? l.lesson_id) === r.lesson_schedule_id);
+      const lessonAllowsCancel = !lesson || lesson.status === 'OPEN' || lesson.status === 'FULL';
+      return {
+        reservationId: r.reservation_id,
+        lessonId: r.lesson_schedule_id,
+        canCancel: canCancelReservation(r) && lessonAllowsCancel,
+      };
+    }),
   };
 }
 
@@ -283,6 +289,8 @@ export function selectLessonListView(state) {
   const filter = state.lessonFilter ?? 'ALL';
   if (filter === 'OPEN') {
     lekce = lekce.filter((l) => l.status === 'OPEN' || l.status === 'FULL');
+  } else if (filter === 'COMPLETED') {
+    lekce = lekce.filter((l) => l.status === 'COMPLETED');
   } else if (filter === 'MINE') {
     lekce = lekce.filter((l) => l.employee_id === state.auth.memberId);
   }
@@ -381,6 +389,8 @@ export function selectAdminView(state) {
     pendingPayments: state.pendingPayments ?? [],
     membersNoMembership: state.membersNoMembership ?? [],
     trainerStats: state.trainerStats ?? [],
+    scheduleCapacity: state.scheduleCapacity ?? [],
+    selectedMemberDetail: state.selectedMemberDetail ?? null,
   };
 }
 
