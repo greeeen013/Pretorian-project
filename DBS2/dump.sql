@@ -28,38 +28,59 @@ CREATE TYPE public.reservationstatus AS ENUM (
     'PAID',
     'CANCELLED',
     'ATTENDED',
-    'COMPLETED'
+    'COMPLETED',
+    'UNENROLLED'
 );
 
 
 ALTER TYPE public.reservationstatus OWNER TO admin_dbs2;
 
 --
--- Name: fn_auto_deduct_credit(); Type: FUNCTION; Schema: public; Owner: admin_dbs2
+-- Name: fn_update_lesson_capacity(); Type: FUNCTION; Schema: public; Owner: admin_dbs2
 --
 
-CREATE FUNCTION public.fn_auto_deduct_credit() RETURNS trigger
+CREATE FUNCTION public.fn_update_lesson_capacity() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 DECLARE
-    v_price NUMERIC;
+    v_occupied      INT;
+    v_capacity      INT;
+    v_lesson_status VARCHAR(50);
+    v_lesson_id     INT;
 BEGIN
-    IF NEW.status = 'CONFIRMED' AND (OLD.status IS NULL OR OLD.status != 'CONFIRMED') THEN
-        SELECT COALESCE(price, 0) INTO v_price
-        FROM lesson_schedule WHERE lesson_schedule_id = NEW.lesson_schedule_id;
+    v_lesson_id := NEW.lesson_schedule_id;
 
-        IF v_price > 0 THEN
-            UPDATE member
-            SET credit_balance = credit_balance - v_price
-            WHERE member_id = NEW.member_id;
-        END IF;
+    SELECT maximum_capacity, status INTO v_capacity, v_lesson_status
+    FROM lesson_schedule
+    WHERE lesson_schedule_id = v_lesson_id;
+
+    IF v_lesson_status IN ('CANCELLED', 'COMPLETED') THEN
+        RETURN NEW;
     END IF;
+
+    SELECT COUNT(*) INTO v_occupied
+    FROM reservation
+    WHERE lesson_schedule_id = v_lesson_id
+      AND status != 'CANCELLED';
+
+    IF v_occupied >= v_capacity THEN
+        UPDATE lesson_schedule
+           SET status = 'FULL'
+         WHERE lesson_schedule_id = v_lesson_id
+           AND status = 'OPEN';
+    ELSE
+        UPDATE lesson_schedule
+           SET status = 'OPEN'
+         WHERE lesson_schedule_id = v_lesson_id
+           AND status = 'FULL';
+    END IF;
+
     RETURN NEW;
 END;
 $$;
 
 
-ALTER FUNCTION public.fn_auto_deduct_credit() OWNER TO admin_dbs2;
+ALTER FUNCTION public.fn_update_lesson_capacity() OWNER TO admin_dbs2;
 
 --
 -- Name: fn_check_lesson_capacity(integer); Type: FUNCTION; Schema: public; Owner: admin_dbs2
@@ -204,22 +225,22 @@ $$;
 ALTER PROCEDURE public.pr_close_monthly_billing() OWNER TO admin_dbs2;
 
 --
--- Name: pr_secure_booking(integer, integer); Type: PROCEDURE; Schema: public; Owner: admin_dbs2
+-- Name: pr_secure_booking(integer, integer, text, text); Type: PROCEDURE; Schema: public; Owner: admin_dbs2
 --
 
-CREATE PROCEDURE public.pr_secure_booking(IN p_member_id integer, IN p_schedule_id integer)
+CREATE PROCEDURE public.pr_secure_booking(IN p_member_id integer, IN p_schedule_id integer, IN p_note text DEFAULT NULL, IN p_guest_name text DEFAULT NULL)
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    INSERT INTO reservation (member_id, lesson_schedule_id, status, timestamp_creation, attendance)
-    VALUES (p_member_id, p_schedule_id, 'CREATED', NOW(), false);
+    INSERT INTO reservation (member_id, lesson_schedule_id, status, timestamp_creation, attendance, note, guest_name)
+    VALUES (p_member_id, p_schedule_id, 'CONFIRMED', NOW(), false, p_note, p_guest_name);
 EXCEPTION WHEN OTHERS THEN
     RAISE EXCEPTION 'Rezervaci se nepodařilo vytvořit: %', SQLERRM;
 END;
 $$;
 
 
-ALTER PROCEDURE public.pr_secure_booking(IN p_member_id integer, IN p_schedule_id integer) OWNER TO admin_dbs2;
+ALTER PROCEDURE public.pr_secure_booking(IN p_member_id integer, IN p_schedule_id integer, IN p_note text, IN p_guest_name text) OWNER TO admin_dbs2;
 
 SET default_tablespace = '';
 
@@ -1384,17 +1405,17 @@ CREATE INDEX idx_reservation_member ON public.reservation USING btree (member_id
 
 
 --
--- Name: reservation trg_after_reservation_confirmed; Type: TRIGGER; Schema: public; Owner: admin_dbs2
---
-
-CREATE TRIGGER trg_after_reservation_confirmed AFTER UPDATE OF status ON public.reservation FOR EACH ROW EXECUTE FUNCTION public.fn_auto_deduct_credit();
-
-
---
 -- Name: reservation trg_pre_reservation_check; Type: TRIGGER; Schema: public; Owner: admin_dbs2
 --
 
 CREATE TRIGGER trg_pre_reservation_check BEFORE INSERT ON public.reservation FOR EACH ROW EXECUTE FUNCTION public.fn_validate_reservation();
+
+
+--
+-- Name: reservation trg_update_lesson_capacity; Type: TRIGGER; Schema: public; Owner: admin_dbs2
+--
+
+CREATE TRIGGER trg_update_lesson_capacity AFTER INSERT OR UPDATE OF status ON public.reservation FOR EACH ROW EXECUTE FUNCTION public.fn_update_lesson_capacity();
 
 
 --

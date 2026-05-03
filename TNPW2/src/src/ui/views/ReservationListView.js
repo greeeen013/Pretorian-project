@@ -20,7 +20,7 @@ function stavLabel(r) {
     }
     return 'Zarezervováno';
   }
-  const m = { CANCELLED: 'Zrušená', ATTENDED: 'Absolvována' };
+  const m = { CANCELLED: 'Zrušená lekce', ATTENDED: 'Absolvována', UNENROLLED: 'Odhlášeno' };
   return m[r.status] ?? r.status;
 }
 
@@ -39,7 +39,9 @@ function stavBadgeClass(r) {
     }
     return 'open';
   }
-  return r.status === 'CANCELLED' ? 'cancelled' : 'completed';
+  if (r.status === 'CANCELLED') return 'cancelled';
+  if (r.status === 'UNENROLLED') return 'unenrolled';
+  return 'completed';
 }
 
 function formatTime(iso) {

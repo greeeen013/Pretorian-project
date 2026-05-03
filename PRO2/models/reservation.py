@@ -3,8 +3,8 @@
 # Rezervace je jádro business logiky Studenta A – reprezentuje vztah mezi
 # konkrétním členem (member) a naplánovanou lekcí (lesson_schedule).
 # Stavový automat rezervace:  CREATED -> CONFIRMED -> ATTENDED
-#                              CREATED -> CANCELLED
-#                              CONFIRMED -> CANCELLED
+#                              CREATED/CONFIRMED -> UNENROLLED  (člen se odhlásil)
+#                              CREATED/CONFIRMED -> CANCELLED   (admin/systém zrušil)
 #
 # Sloupce odpovídají DDL.sql vygenerovanému z Enterprise Architectu.
 #
@@ -38,7 +38,7 @@ class Reservation(Base):
     )
 
     # --- Stav rezervace (stavový automat) ---
-    # Povolené hodnoty: CREATED, CONFIRMED, CANCELLED, ATTENDED
+    # Povolené hodnoty: CREATED, CONFIRMED, CANCELLED, ATTENDED, UNENROLLED
     # NOT NULL – každá rezervace musí mít stav od okamžiku vzniku.
     status: Mapped[str] = mapped_column(
         String(50),

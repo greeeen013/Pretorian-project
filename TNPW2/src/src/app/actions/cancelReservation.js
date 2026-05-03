@@ -12,7 +12,7 @@ export async function cancelReservation({ store, api, payload }) {
   }));
 
   try {
-    const result = await api.reservations.updateStatus(reservationId, 'CANCELLED');
+    const result = await api.reservations.updateStatus(reservationId, 'UNENROLLED');
 
     store.setState((state) => ({
       ...state,

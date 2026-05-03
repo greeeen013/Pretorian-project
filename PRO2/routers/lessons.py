@@ -174,7 +174,7 @@ def get_lesson_attendees(lesson_id: int, db: Session = Depends(get_db), current:
         .join(Member, Reservation.member_id == Member.member_id)
         .filter(
             Reservation.lesson_schedule_id == lesson_id,
-            Reservation.status != "CANCELLED",
+            Reservation.status.notin_(["CANCELLED", "UNENROLLED"]),
         )
         .all()
     )
@@ -255,24 +255,11 @@ def kick_member(
     if not reservation or reservation.lesson_schedule_id != lesson_id:
         raise HTTPException(status_code=404, detail="Rezervace nenalezena")
 
-    if reservation.status == 'CANCELLED':
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rezervace je již zrušena.")
-
-    if reservation.status == 'CONFIRMED':
-        member = db.query(Member).filter(Member.member_id == reservation.member_id).first()
-        if member:
-            member.credit_balance += int(lesson.price)
+    if reservation.status in ('CANCELLED', 'UNENROLLED'):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rezervace je již zrušena nebo člen se odhlásil.")
 
     reservation.status = 'CANCELLED'
-
-    if lesson.status == 'FULL':
-        active_count = db.query(Reservation).filter(
-            Reservation.lesson_schedule_id == lesson_id,
-            Reservation.status.in_(["CREATED", "CONFIRMED"])
-        ).count()
-        if active_count < lesson.maximum_capacity:
-            lesson.status = 'OPEN'
-
+    # Stav lekce (FULL → OPEN) aktualizuje trigger fn_update_lesson_capacity automaticky.
     db.commit()
 
 
@@ -324,6 +311,7 @@ def update_lesson_status(lesson_id: int, data: LessonStatusUpdate, db: Session =
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Pouze trenér nebo admin může měnit stav lekce.")
 
     lesson.status = new_status
+    db.flush()  # zapíše stav lekce do DB dříve, než trigger zachytí změny rezervací
 
     if new_status == "CANCELLED":
         active = db.query(Reservation).filter(
@@ -331,10 +319,6 @@ def update_lesson_status(lesson_id: int, data: LessonStatusUpdate, db: Session =
             Reservation.status.in_(["CREATED", "CONFIRMED"])
         ).all()
         for res in active:
-            if res.status == "CONFIRMED":
-                member = db.query(Member).filter(Member.member_id == res.member_id).first()
-                if member:
-                    member.credit_balance += int(lesson.price)
             res.status = "CANCELLED"
 
     db.commit()

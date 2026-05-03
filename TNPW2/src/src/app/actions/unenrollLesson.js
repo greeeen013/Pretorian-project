@@ -10,7 +10,7 @@ export async function unenrollLesson({ store, api, payload }) {
   }));
 
   try {
-    await api.reservations.updateStatus(reservationId, 'CANCELLED');
+    await api.reservations.updateStatus(reservationId, 'UNENROLLED');
 
     // Refresh lessons list and reservations to reflect updated enrollment count
     const [lekce, rezervace] = await Promise.all([
