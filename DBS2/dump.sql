@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict X2VEg5l25N8Vl2la1DymG4lkKNkCASnaWDwuzcoCZ9eoixYfIuMUfPvv6fuwf8Y
+\restrict w68RO0lbBhCbi4LkespIXfITamS3EWfPHW5AN7GEvqHOb2f6LFbRmiFEpCMV1be
 
--- Dumped from database version 16.12 (Debian 16.12-1.pgdg13+1)
--- Dumped by pg_dump version 16.12 (Debian 16.12-1.pgdg13+1)
+-- Dumped from database version 16.13 (Debian 16.13-1.pgdg13+1)
+-- Dumped by pg_dump version 16.13 (Debian 16.13-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -36,53 +36,6 @@ CREATE TYPE public.reservationstatus AS ENUM (
 ALTER TYPE public.reservationstatus OWNER TO admin_dbs2;
 
 --
--- Name: fn_update_lesson_capacity(); Type: FUNCTION; Schema: public; Owner: admin_dbs2
---
-
-CREATE FUNCTION public.fn_update_lesson_capacity() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_occupied      INT;
-    v_capacity      INT;
-    v_lesson_status VARCHAR(50);
-    v_lesson_id     INT;
-BEGIN
-    v_lesson_id := NEW.lesson_schedule_id;
-
-    SELECT maximum_capacity, status INTO v_capacity, v_lesson_status
-    FROM lesson_schedule
-    WHERE lesson_schedule_id = v_lesson_id;
-
-    IF v_lesson_status IN ('CANCELLED', 'COMPLETED') THEN
-        RETURN NEW;
-    END IF;
-
-    SELECT COUNT(*) INTO v_occupied
-    FROM reservation
-    WHERE lesson_schedule_id = v_lesson_id
-      AND status != 'CANCELLED';
-
-    IF v_occupied >= v_capacity THEN
-        UPDATE lesson_schedule
-           SET status = 'FULL'
-         WHERE lesson_schedule_id = v_lesson_id
-           AND status = 'OPEN';
-    ELSE
-        UPDATE lesson_schedule
-           SET status = 'OPEN'
-         WHERE lesson_schedule_id = v_lesson_id
-           AND status = 'FULL';
-    END IF;
-
-    RETURN NEW;
-END;
-$$;
-
-
-ALTER FUNCTION public.fn_update_lesson_capacity() OWNER TO admin_dbs2;
-
---
 -- Name: fn_check_lesson_capacity(integer); Type: FUNCTION; Schema: public; Owner: admin_dbs2
 --
 
@@ -100,7 +53,8 @@ BEGIN
 
     SELECT COUNT(*) INTO v_current
     FROM reservation
-    WHERE lesson_schedule_id = p_lesson_id AND status != 'CANCELLED';
+    WHERE lesson_schedule_id = p_lesson_id
+      AND status NOT IN ('CANCELLED', 'UNENROLLED');
 
     RETURN v_current < v_max;
 END;
@@ -149,6 +103,54 @@ $$;
 ALTER FUNCTION public.fn_get_tariff_price(p_tariff_id integer, p_discount_percent numeric) OWNER TO admin_dbs2;
 
 --
+-- Name: fn_update_lesson_capacity(); Type: FUNCTION; Schema: public; Owner: admin_dbs2
+--
+
+CREATE FUNCTION public.fn_update_lesson_capacity() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_occupied      INT;
+    v_capacity      INT;
+    v_lesson_status VARCHAR(50);
+    v_lesson_id     INT;
+BEGIN
+    v_lesson_id := NEW.lesson_schedule_id;
+
+    SELECT maximum_capacity, status INTO v_capacity, v_lesson_status
+    FROM lesson_schedule
+    WHERE lesson_schedule_id = v_lesson_id;
+
+    -- Nem??nit stav ukon??en?? nebo zru??en?? lekce
+    IF v_lesson_status IN ('CANCELLED', 'COMPLETED') THEN
+        RETURN NEW;
+    END IF;
+
+    SELECT COUNT(*) INTO v_occupied
+    FROM reservation
+    WHERE lesson_schedule_id = v_lesson_id
+      AND status NOT IN ('CANCELLED', 'UNENROLLED');
+
+    IF v_occupied >= v_capacity THEN
+        UPDATE lesson_schedule
+           SET status = 'FULL'
+         WHERE lesson_schedule_id = v_lesson_id
+           AND status = 'OPEN';
+    ELSE
+        UPDATE lesson_schedule
+           SET status = 'OPEN'
+         WHERE lesson_schedule_id = v_lesson_id
+           AND status = 'FULL';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.fn_update_lesson_capacity() OWNER TO admin_dbs2;
+
+--
 -- Name: fn_validate_reservation(); Type: FUNCTION; Schema: public; Owner: admin_dbs2
 --
 
@@ -166,10 +168,11 @@ BEGIN
 
     SELECT COUNT(*) INTO v_curr_occupied
     FROM reservation
-    WHERE lesson_schedule_id = NEW.lesson_schedule_id AND status != 'CANCELLED';
+    WHERE lesson_schedule_id = NEW.lesson_schedule_id
+      AND status NOT IN ('CANCELLED', 'UNENROLLED');
 
     IF v_curr_occupied >= v_max_cap THEN
-        RAISE EXCEPTION 'Kapacita lekce je vyčerpána.';
+        RAISE EXCEPTION 'Kapacita lekce je vy??erp??na.';
     END IF;
 
     RETURN NEW;
@@ -195,7 +198,7 @@ BEGIN
           SELECT DISTINCT member_id FROM membership WHERE valid_to >= NOW()
       );
 EXCEPTION WHEN OTHERS THEN
-    RAISE EXCEPTION 'Chyba při archivaci členů: %', SQLERRM;
+    RAISE EXCEPTION 'Chyba p??i archivaci ??len??: %', SQLERRM;
 END;
 $$;
 
@@ -217,7 +220,7 @@ BEGIN
           SELECT membership_id FROM membership WHERE valid_to < NOW()
       );
 EXCEPTION WHEN OTHERS THEN
-    RAISE EXCEPTION 'Chyba při uzavírání vyúčtování: %', SQLERRM;
+    RAISE EXCEPTION 'Chyba p??i uzav??r??n?? vy????tov??n??: %', SQLERRM;
 END;
 $$;
 
@@ -228,14 +231,14 @@ ALTER PROCEDURE public.pr_close_monthly_billing() OWNER TO admin_dbs2;
 -- Name: pr_secure_booking(integer, integer, text, text); Type: PROCEDURE; Schema: public; Owner: admin_dbs2
 --
 
-CREATE PROCEDURE public.pr_secure_booking(IN p_member_id integer, IN p_schedule_id integer, IN p_note text DEFAULT NULL, IN p_guest_name text DEFAULT NULL)
+CREATE PROCEDURE public.pr_secure_booking(IN p_member_id integer, IN p_schedule_id integer, IN p_note text DEFAULT NULL::text, IN p_guest_name text DEFAULT NULL::text)
     LANGUAGE plpgsql
     AS $$
 BEGIN
     INSERT INTO reservation (member_id, lesson_schedule_id, status, timestamp_creation, attendance, note, guest_name)
     VALUES (p_member_id, p_schedule_id, 'CONFIRMED', NOW(), false, p_note, p_guest_name);
 EXCEPTION WHEN OTHERS THEN
-    RAISE EXCEPTION 'Rezervaci se nepodařilo vytvořit: %', SQLERRM;
+    RAISE EXCEPTION 'Rezervaci se nepoda??ilo vytvo??it: %', SQLERRM;
 END;
 $$;
 
@@ -823,7 +826,7 @@ CREATE VIEW public.v_schedule_with_capacity AS
     count(r.reservation_id) AS occupied_slots,
     (ls.maximum_capacity - count(r.reservation_id)) AS free_slots
    FROM (public.lesson_schedule ls
-     LEFT JOIN public.reservation r ON (((ls.lesson_schedule_id = r.lesson_schedule_id) AND ((r.status)::text <> 'CANCELLED'::text))))
+     LEFT JOIN public.reservation r ON (((ls.lesson_schedule_id = r.lesson_schedule_id) AND ((r.status)::text <> ALL ((ARRAY['CANCELLED'::character varying, 'UNENROLLED'::character varying])::text[])))))
   GROUP BY ls.lesson_schedule_id, ls.name, ls.start_time, ls.maximum_capacity;
 
 
@@ -847,7 +850,7 @@ CREATE VIEW public.v_trainer_stats AS
    FROM (((public.employee e
      JOIN public.member m ON ((e.employee_id = m.member_id)))
      LEFT JOIN public.lesson_schedule ls ON ((e.employee_id = ls.employee_id)))
-     LEFT JOIN public.reservation r ON (((ls.lesson_schedule_id = r.lesson_schedule_id) AND ((r.status)::text <> 'CANCELLED'::text))))
+     LEFT JOIN public.reservation r ON (((ls.lesson_schedule_id = r.lesson_schedule_id) AND ((r.status)::text <> ALL ((ARRAY['CANCELLED'::character varying, 'UNENROLLED'::character varying])::text[])))))
   GROUP BY e.employee_id, m.name, m.surname;
 
 
@@ -909,7 +912,6 @@ CZ0000000000000000000000	\N	Trenér	\N	2026-04-23	HPP	8
 --
 
 COPY public.lesson_schedule (description, duration, end_time, is_private, maximum_capacity, name, price, start_time, status, lesson_schedule_id, employee_id, lesson_template_id, lesson_type_id) FROM stdin;
-mma testovací	60	\N	\N	20	MMA	\N	2026-05-01 11:00:00	OPEN	52	6	\N	1
 mma testovací	60	\N	\N	20	MMA	\N	2026-05-04 11:00:00	OPEN	53	6	\N	1
 mma testovací	60	\N	\N	20	MMA	\N	2026-05-06 11:00:00	OPEN	54	6	\N	1
 mma testovací	60	\N	\N	20	MMA	\N	2026-05-08 11:00:00	OPEN	55	6	\N	1
@@ -951,6 +953,7 @@ JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-04-28 12:00:00	COMPLETED	65	7
 JIU-JITSU testovací	60	\N	\N	20	JIU-JITSU	\N	2026-04-30 12:00:00	COMPLETED	66	7	\N	1
 test nováček	60	\N	\N	20	pro nováčky	\N	2026-04-29 13:00:00	COMPLETED	82	8	\N	1
 mma testovací	60	\N	\N	20	MMA	\N	2026-04-28 12:52:00	COMPLETED	91	6	\N	1
+mma testovací	60	\N	\N	20	MMA	\N	2026-05-01 11:00:00	COMPLETED	52	6	\N	1
 \.
 
 
@@ -1075,7 +1078,11 @@ COPY public.reservation (attendance, guest_name, note, status, timestamp_creatio
 \N	\N	\N	CREATED	2026-04-23 17:25:51.345038	\N	3	9	50
 \N	\N	\N	CREATED	2026-04-23 17:25:53.373125	\N	4	9	51
 \N	\N	\N	CREATED	2026-04-23 17:25:55.184347	\N	5	9	82
-\N	\N	\N	CONFIRMED	2026-04-30 11:21:22.104735	\N	6	9	54
+\N	\N	\N	CANCELLED	2026-04-30 11:21:22.104735	2026-05-03 20:14:56.253429	6	9	54
+f	\N	\N	CANCELLED	2026-05-03 20:15:27.863545	2026-05-03 20:15:38.414244	7	9	54
+f	\N	\N	CANCELLED	2026-05-03 20:21:09.431282	2026-05-03 20:21:13.012309	8	9	53
+f	\N	\N	CANCELLED	2026-05-03 20:21:25.149919	2026-05-03 21:56:28.279863	9	9	53
+f	\N	\N	UNENROLLED	2026-05-03 21:57:38.151308	2026-05-03 21:58:04.122822	10	9	55
 \.
 
 
@@ -1193,7 +1200,7 @@ SELECT pg_catalog.setval('public.payment_payment_id_seq', 16, true);
 -- Name: reservation_reservation_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin_dbs2
 --
 
-SELECT pg_catalog.setval('public.reservation_reservation_id_seq', 6, true);
+SELECT pg_catalog.setval('public.reservation_reservation_id_seq', 10, true);
 
 
 --
@@ -1638,5 +1645,5 @@ ALTER TABLE ONLY public.lesson_template_tariff
 -- PostgreSQL database dump complete
 --
 
-\unrestrict X2VEg5l25N8Vl2la1DymG4lkKNkCASnaWDwuzcoCZ9eoixYfIuMUfPvv6fuwf8Y
+\unrestrict w68RO0lbBhCbi4LkespIXfITamS3EWfPHW5AN7GEvqHOb2f6LFbRmiFEpCMV1be
 
